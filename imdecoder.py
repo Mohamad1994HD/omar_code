@@ -125,7 +125,7 @@ class Detector(object):
         cv2.rectangle(self.image, (x1, y1), (x2, y2), (0, 255,0))
         bins = self.objects.get_bins_in_range(self.DEFAULT_BIN, [x1, y1, x2, y2]) 
         bins.highlight(self.image, Color.BLUE)
-        bins.sort(key=lambda x:x.position[1], reverse=True)
+        bins.sort(key=lambda x:x.position[1])
         d = [format((x2 - i.position[0])/16, 'X') for i in bins]
         #
         x3 = x1 - 6 * mw 
@@ -133,7 +133,7 @@ class Detector(object):
         cv2.rectangle(self.image, (x3, y3), (x1-mw, y2), (255, 0, 255))
         bins = self.objects.get_bins_in_range(self.DEFAULT_BIN, [x3, y3, x1, y2]) 
         bins.highlight(self.image, Color.BLUE)
-        bins.sort(key=lambda x:x.position[0], reverse=True)
+        bins.sort(key=lambda x:x.position[0])
         d += [format((y2 - i.position[1])/16, 'X') for i in bins]
         #
         c1 = cc[-1]
@@ -146,7 +146,7 @@ class Detector(object):
         bins = self.objects.get_bins_in_range(self.DEFAULT_BIN, [x4, y4, x5, y5]) 
         bins.highlight(self.image, Color.RED)
         bins.sort(key=lambda x:x.position[1])
-        d += [format((i.position[0] - x4)/16, 'X') for i in bins]
+        dd = [format((i.position[0] - x4)/16, 'X') for i in bins]
         #
         x6 = x2 
         y6 = y1 
@@ -155,8 +155,9 @@ class Detector(object):
         bins = self.objects.get_bins_in_range(self.DEFAULT_BIN, [x5, y4, x6, y6]) 
         bins.highlight(self.image, Color.RED)
         bins.sort(key=lambda x:x.position[0], reverse=True)
-        d += [format((i.position[1] - y4)/16, 'X') for i in bins]
-        print ''.join(d)
+        dd += [format((i.position[1] - y4)/16, 'X') for i in bins]
+        dd += d
+        print ''.join(dd)
         #for i in bins:
         #    print format((x2 - i.position[0])/16, '2X')
         pass
