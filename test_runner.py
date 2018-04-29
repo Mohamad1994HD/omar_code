@@ -1,4 +1,6 @@
 import unittest
+from os import listdir
+from os.path import isfile, join
 import imdecoder
 
 class TestImageHandlingMethods(unittest.TestCase):
@@ -11,7 +13,8 @@ class TestImageHandlingMethods(unittest.TestCase):
 
 class TestImageProcessingMethods(unittest.TestCase):
     def setUp(self):
-        imgs = [imdecoder.load_img('./assets/testimg0%d'% (n)) for n in xrange(1,13)]
+        files = [join('./assets', f) for f in listdir('./assets') if isfile(join('./assets', f))]
+        imgs = [imdecoder.load_img(f) for f in files]
         self.detectors = [imdecoder.Detector(img) for img in imgs]
 
     def test_shapes_detected(self):

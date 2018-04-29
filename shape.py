@@ -1,3 +1,4 @@
+import math
 from enum import Enum
 import cv2
 
@@ -29,9 +30,8 @@ class ShapeDescriptor(object):
         self.type = Shape.UNDEFINED
         self.bounder = (0,0,0,0)
         #
-        self.compute_centroid() 
         self.estimate_shape() 
-        self.compute_area()
+        self.compute_centroid() 
 
     def __repr__(self):
         return "[%d, %d]"%(self.position)
@@ -40,13 +40,22 @@ class ShapeDescriptor(object):
         return t == self.type
 
     def compute_centroid(self):
+        x, y, w, h = self.bounder 
         self.centroid = (
-                int(self.moments_["m10"] / self.moments_["m00"]),
-                int(self.moments_["m01"] / self.moments_["m00"])
+                x + w/2,
+                y + h/2
                 )
+#        self.centroid = (
+#                int(self.moments_["m10"] / self.moments_["m00"]),
+#                int(self.moments_["m01"] / self.moments_["m00"])
+#                )
 
-    def compute_area(self):
-        self.area = self.moments_['m00']
+    #def compute_area(self):
+    #    self.area = cv2.contourArea(self.contour)
+#        try:
+#            self.area = self.moments_['m00']
+#        except:
+#            self.area = cv2.contourArea(self.contour)
     @property 
     def bound_rect(self):
         return self.bounder
@@ -54,15 +63,21 @@ class ShapeDescriptor(object):
     def estimate_shape(self):
         peri = cv2.arcLength(self.contour, True)
         approx = cv2.approxPolyDP(self.contour, 0.04 * peri, True)
-        self.type = Shape.UNDEFINED 
+        
         vertices = len(approx)
         self.bounder = cv2.boundingRect(approx)
+        x,y,w,h = self.bounder
+        self.area = w * h
+        if self.area < 25:
+            return
 
         if vertices == 3:
             self.type = Shape.TRIANGLE
         if vertices == 4:
-            x,y,w,h = self.bounder
             ar = w/float(h)
+            #self.type = Shape.RECTANGLE
+            #if 1 - 0.15 < math.fabs((peri / 4) ** 2) / self.area < 1 + 0.15:
+            #    self.type = Shape.SQUARE
             self.type = Shape.SQUARE if (
                     self.SQUARE_RATIO_LIMITS[0]<=ar<=self.SQUARE_RATIO_LIMITS[1]
                     ) else Shape.RECTANGLE
@@ -71,9 +86,9 @@ class ShapeDescriptor(object):
         else:
             self.type = Shape.CIRCLE
     
-    def highlight(self, ref_img):
-        cv2.drawContours(ref_img, [self.contour], -1, Color.GREEN, 2)
-        cv2.circle(ref_img, self.position, 1, Color.WHITE, -1)
+    def highlight(self, ref_img, bColor=Color.GREEN, cColor=Color.WHITE):
+        cv2.drawContours(ref_img, [self.contour], -1, bColor, 2)
+        cv2.circle(ref_img, self.position, 1, cColor, -1)
 
     @property
     def position(self):
@@ -81,7 +96,32 @@ class ShapeDescriptor(object):
     @property
     def size(self):
         return self.area
+    @property
+    def ul_corner(self):
+        x, y, w, h = self.bounder
+        return (x, y)
+    
+    @property
+    def dr_corner(self):
+        x, y, w, h = self.bounder
+        return (x + w, y + h)
+   
+    @property
+    def ur_corner(self):
+        x, y, w, h = self.bounder
+        return (x + w, y)
 
+    @property
+    def r_edge(self):
+        x, y, w, h = self.bounder
+        return (x + w, y + h/2)
+    
+    @property
+    def width(self):
+        return self.bounder[2]
+    @property
+    def height(self):
+        return self.bounder[3]
 class ShapeList(list):
     def query(self, key):
         return ShapeList([x for x in self if x.type == key])
@@ -89,10 +129,18 @@ class ShapeList(list):
     def count(self, key):
         return len(self.query(key))
 
-    def highlight(self, ref_img):
+    def highlight(self, ref_img, border_color=Color.GREEN, center_color=Color.WHITE):
         assert ref_img is not None
         for i in self:
-            i.highlight(ref_img)
+            i.highlight(ref_img, bColor=border_color, cColor=center_color)
+
+    def remove(self, key):
+        q = self.query(key)
+        return ShapeList([x for x in self if x not in q])
+    
+    def get_bins_in_range(self, key, rng):
+        q = self.query(key)
+        return ShapeList([p for p in q if rng[0]<=p.position[0]<=rng[2] and rng[1]<=p.position[1]<=rng[3]])
 
     @property
     def min(self):

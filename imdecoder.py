@@ -24,14 +24,24 @@ class Detector(object):
         #
         self.preprocess()
         self.digest_contours()
+        #self.evaluate()
 
     def highlight(self):
         self.objects.highlight(self.image)
 
     def preprocess(self):
         gray = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, self.GKERNEL, 0)
+        filtered = cv2.bilateralFilter(gray, 5, 20, 20)
+        blurred = cv2.GaussianBlur(filtered, self.GKERNEL, 0)
         self.thres = cv2.threshold(blurred, 60, 255, cv2.THRESH_BINARY_INV)[1]
+        #self.thres = cv2.Canny(blurred, 200, 250) 
+        #t2 = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        #        cv2.THRESH_BINARY_INV, 5, 4)
+        #self.thres = t2
+#        cv2.imshow('t2', t2)
+#        w2 = np.ones((t2.shape[0], t2.shape[1]), dtype='uint8') * 255
+#        cv2.imshow('w2', w2) 
+#        self.thres = w2 - t2 
 
     def digest_contours(self, compensate=False):
         cnts = cv2.findContours(self.thres.copy(), cv2.RETR_EXTERNAL,
@@ -40,6 +50,8 @@ class Detector(object):
         for c in cnts:
             self.objects.append(ShapeDescriptor(c))
         
+        # remove undefined shapes
+        #self.objects = self.objects.remove(Shape.UNDEFINED)
         if not compensate:
             if self.objects.min.is_type(self.DEFAULT_BIN):
                 self.bin_template = self.objects.min
@@ -102,7 +114,51 @@ class Detector(object):
 #                        #self.thres[y-pad:y+pad+1, x-pad:x+pad+1] = kernel
             #print self.objects.query(self.DEFAULT_BIN).min.size
 
-    def validate(self):
+    def evaluate(self):
+        cc = sorted(self.objects.query(self.DEFAULT_ANCHOR), key=lambda x:x.position[1], reverse=True)
+        c3 = cc[0]
+        x2, y2 = c3.ul_corner
+        min_ = self.objects.min
+        mw,mh = min_.width, min_.height
+        x1 = x2 - 17 * mw
+        y1 = y2 - 5 * mh
+        cv2.rectangle(self.image, (x1, y1), (x2, y2), (0, 255,0))
+        bins = self.objects.get_bins_in_range(self.DEFAULT_BIN, [x1, y1, x2, y2]) 
+        bins.highlight(self.image, Color.BLUE)
+        bins.sort(key=lambda x:x.position[1], reverse=True)
+        d = [format((x2 - i.position[0])/16, 'X') for i in bins]
+        #
+        x3 = x1 - 6 * mw 
+        y3 = y2 - 17 * mh
+        cv2.rectangle(self.image, (x3, y3), (x1-mw, y2), (255, 0, 255))
+        bins = self.objects.get_bins_in_range(self.DEFAULT_BIN, [x3, y3, x1, y2]) 
+        bins.highlight(self.image, Color.BLUE)
+        bins.sort(key=lambda x:x.position[0], reverse=True)
+        d += [format((y2 - i.position[1])/16, 'X') for i in bins]
+        #
+        c1 = cc[-1]
+        #c2 = cc[1]
+
+        x4, y4 = c1.dr_corner
+        x5 = x4 + 17 * mw
+        y5 = y4 + 5 * mh
+        cv2.rectangle(self.image, (x4, y4), (x5, y5), (0, 255,0))
+        bins = self.objects.get_bins_in_range(self.DEFAULT_BIN, [x4, y4, x5, y5]) 
+        bins.highlight(self.image, Color.RED)
+        bins.sort(key=lambda x:x.position[1])
+        d += [format((i.position[0] - x4)/16, 'X') for i in bins]
+        #
+        x6 = x2 
+        y6 = y1 
+    
+        cv2.rectangle(self.image, (x5, y4), (x6, y6), (0, 255,0))
+        bins = self.objects.get_bins_in_range(self.DEFAULT_BIN, [x5, y4, x6, y6]) 
+        bins.highlight(self.image, Color.RED)
+        bins.sort(key=lambda x:x.position[0], reverse=True)
+        d += [format((i.position[1] - y4)/16, 'X') for i in bins]
+        print ''.join(d)
+        #for i in bins:
+        #    print format((x2 - i.position[0])/16, '2X')
         pass
     
     @property
@@ -136,10 +192,11 @@ if __name__ == "__main__":
      
     # load the image, convert it to grayscale, blur it slightly,
     # and threshold it
-    image = cv2.imread(args["image"])
+    image = load_img(args["image"])
     cv2.imshow("original", image)
     detector = Detector(image)
     detector.highlight()
+    detector.evaluate()
     cv2.imshow("thres", detector.thres)
     #
 #    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
